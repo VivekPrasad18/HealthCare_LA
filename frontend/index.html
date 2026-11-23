@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Healthcare Literature Analyzer</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --card: #1a1d27;
+      --card2: #22263a;
+      --border: #2e3250;
+      --accent: #6c63ff;
+      --accent2: #4ecca3;
+      --text: #e8eaf6;
+      --muted: #8b90b0;
+      --danger: #ff6b6b;
+      --warn: #ffd166;
+      --success: #4ecca3;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 18px 32px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    header .logo {
+      width: 38px; height: 38px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+    }
+    header h1 { font-size: 1.3rem; font-weight: 600; }
+    header p { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+    .status-dot {
+      margin-left: auto;
+      display: flex; align-items: center; gap: 7px;
+      font-size: 0.8rem; color: var(--muted);
+    }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--danger);
+      animation: pulse 2s infinite;
+    }
+    .dot.online { background: var(--success); animation: none; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    /* ── Layout ── */
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 28px 20px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    @media(max-width:768px){ .container{ grid-template-columns:1fr; } }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 22px;
+    }
+    .card h2 {
+      font-size: 1rem; font-weight: 600;
+      margin-bottom: 16px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .card h2 .icon { font-size: 1.1rem; }
+
+    /* ── Input section ── */
+    .input-section { grid-column: 1 / -1; }
+
+    textarea {
+      width: 100%;
+      background: var(--card2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      padding: 14px;
+      font-size: 1rem;
+      font-family: inherit;
+      resize: vertical;
+      min-height: 90px;
+      outline: none;
+      transition: border-color .2s;
+    }
+    textarea:focus { border-color: var(--accent); }
+
+    .options-row {
+      display: flex;
+      gap: 14px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    label { font-size: 0.85rem; color: var(--muted); }
+    select, input[type=number] {
+      background: var(--card2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 7px 11px;
+      font-size: 0.85rem;
+      outline: none;
+    }
+
+    .btn {
+      margin-left: auto;
+      padding: 10px 28px;
+      background: linear-gradient(135deg, var(--accent), #9b59b6);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .2s, transform .1s;
+    }
+    .btn:hover { opacity: 0.88; }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ── Progress stepper ── */
+    .stepper { grid-column: 1 / -1; display: none; }
+    .steps {
+      display: flex;
+      gap: 0;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .step {
+      flex: 1;
+      padding: 12px 6px;
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--muted);
+      background: var(--card2);
+      border-right: 1px solid var(--border);
+      position: relative;
+      transition: all .3s;
+    }
+    .step:last-child { border-right: none; }
+    .step .step-icon { font-size: 1.2rem; display: block; margin-bottom: 4px; }
+    .step.active { background: var(--card); color: var(--accent); font-weight: 600; }
+    .step.done { background: rgba(78,204,163,.12); color: var(--success); }
+    .step.done::after {
+      content: '✓';
+      position: absolute; top: 6px; right: 8px;
+      font-size: 0.7rem; color: var(--success);
+    }
+
+    /* ── Results ── */
+    .results-section { grid-column: 1 / -1; display: none; }
+
+    .summary-box {
+      background: linear-gradient(135deg, rgba(108,99,255,.12), rgba(78,204,163,.08));
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 20px;
+      margin-bottom: 18px;
+      line-height: 1.7;
+    }
+    .summary-box h3 { font-size: 0.85rem; color: var(--accent2); margin-bottom: 8px; letter-spacing:.05em; text-transform:uppercase; }
+
+    .tabs {
+      display: flex; gap: 4px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+    }
+    .tab {
+      padding: 9px 16px;
+      border-radius: 8px 8px 0 0;
+      cursor: pointer;
+      font-size: 0.85rem;
+      color: var(--muted);
+      background: none;
+      border: none;
+      transition: all .2s;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--accent); border-bottom: 2px solid var(--accent); font-weight: 600; }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Findings list ── */
+    .findings-list { list-style: none; }
+    .findings-list li {
+      padding: 10px 14px;
+      background: var(--card2);
+      border-left: 3px solid var(--accent);
+      border-radius: 0 8px 8px 0;
+      margin-bottom: 8px;
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+
+    /* ── Papers grid ── */
+    .papers-grid { display: flex; flex-direction: column; gap: 10px; }
+    .paper-card {
+      background: var(--card2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+    .paper-card .paper-title { font-weight: 600; font-size: 0.9rem; margin-bottom: 5px; }
+    .paper-card .paper-meta { font-size: 0.78rem; color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; }
+    .paper-card a { color: var(--accent); text-decoration: none; font-size:0.78rem; }
+    .paper-card a:hover { text-decoration: underline; }
+    .source-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      margin-left: auto;
+    }
+    .source-pubmed { background: rgba(255,107,107,.15); color: #ff9999; }
+    .source-semantic_scholar { background: rgba(108,99,255,.15); color: #a9a4ff; }
+
+    /* ── Claims / validation ── */
+    .claim-card {
+      background: var(--card2);
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 10px;
+      border-left: 4px solid var(--muted);
+    }
+    .claim-card.supported { border-color: var(--success); }
+    .claim-card.partially_supported { border-color: var(--warn); }
+    .claim-card.unsupported { border-color: var(--danger); }
+    .claim-card.insufficient_evidence { border-color: var(--muted); }
+    .claim-status {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      margin-bottom: 7px;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .claim-card.supported .claim-status { background: rgba(78,204,163,.15); color: var(--success); }
+    .claim-card.partially_supported .claim-status { background: rgba(255,209,102,.15); color: var(--warn); }
+    .claim-card.unsupported .claim-status { background: rgba(255,107,107,.15); color: var(--danger); }
+    .claim-card.insufficient_evidence .claim-status { background: rgba(139,144,176,.15); color: var(--muted); }
+    .claim-text { font-size: 0.88rem; line-height: 1.6; }
+    .claim-source { font-size: 0.75rem; color: var(--muted); margin-top: 5px; }
+
+    /* ── Gaps ── */
+    .gap-card {
+      background: var(--card2);
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 10px;
+      display: flex; gap: 12px;
+    }
+    .gap-icon { font-size: 1.4rem; flex-shrink: 0; }
+    .gap-type {
+      font-size: 0.72rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing:.05em;
+      color: var(--warn);
+      margin-bottom: 5px;
+    }
+    .gap-text { font-size: 0.88rem; line-height: 1.6; }
+
+    /* ── Synthesis ── */
+    .synthesis-text {
+      font-size: 0.9rem; line-height: 1.8;
+      white-space: pre-wrap;
+    }
+
+    /* ── References ── */
+    .ref-list { list-style: none; }
+    .ref-list li {
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.82rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .ref-list li:last-child { border-bottom: none; }
+
+    /* ── Error / empty states ── */
+    .error-box {
+      background: rgba(255,107,107,.08);
+      border: 1px solid rgba(255,107,107,.3);
+      border-radius: 10px;
+      padding: 16px;
+      color: var(--danger);
+      font-size: 0.9rem;
+      display: none;
+      grid-column: 1/-1;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--muted);
+    }
+    .empty-state .big { font-size: 2.5rem; margin-bottom: 10px; }
+
+    /* ── Spinner ── */
+    .spinner {
+      display: inline-block;
+      width: 18px; height: 18px;
+      border: 3px solid rgba(255,255,255,.2);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Stats row ── */
+    .stats-row {
+      display: flex; gap: 10px; flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+    .stat-pill {
+      background: var(--card2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 0.8rem;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .stat-pill .num { font-weight: 700; color: var(--accent2); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🧬</div>
+  <div>
+    <h1>Healthcare Literature Analyzer</h1>
+    <p>Agentic AI · RAG · Evidence Grounding</p>
+  </div>
+  <div class="status-dot">
+    <div class="dot" id="apiDot"></div>
+    <span id="apiStatus">Checking API...</span>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- ── Query input ── -->
+  <div class="card input-section">
+    <h2><span class="icon">🔍</span> Enter Your Research Question</h2>
+    <textarea id="questionInput" rows="3"
+      placeholder="e.g. What are recent machine learning approaches for early detection of diabetic retinopathy?"></textarea>
+    <div class="options-row">
+      <div>
+        <label>Max papers &nbsp;</label>
+        <input type="number" id="maxPapers" value="5" min="1" max="30" style="width:65px" />
+      </div>
+      <div>
+        <label>Sources &nbsp;</label>
+        <select id="sources">
+          <option value="both">PubMed + Semantic Scholar</option>
+          <option value="pubmed">PubMed only</option>
+          <option value="semantic_scholar">Semantic Scholar only</option>
+        </select>
+      </div>
+      <button class="btn" id="runBtn" onclick="runResearch()">
+        Analyze Literature
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Error box ── -->
+  <div class="error-box" id="errorBox"></div>
+
+  <!-- ── Progress stepper ── -->
+  <div class="card stepper" id="stepperCard">
+    <h2><span class="icon">⚙️</span> <span id="progressLabel">Running agents...</span></h2>
+    <div class="steps">
+      <div class="step" id="s1"><span class="step-icon">🔎</span>Retrieve</div>
+      <div class="step" id="s2"><span class="step-icon">🧪</span>Extract</div>
+      <div class="step" id="s3"><span class="step-icon">✅</span>Validate</div>
+      <div class="step" id="s4"><span class="step-icon">🔗</span>Synthesize</div>
+      <div class="step" id="s5"><span class="step-icon">🕳️</span>Gaps</div>
+      <div class="step" id="s6"><span class="step-icon">📄</span>Report</div>
+    </div>
+  </div>
+
+  <!-- ── Results ── -->
+  <div class="card results-section" id="resultsSection">
+    <div class="summary-box" id="summaryBox"></div>
+    <div class="stats-row" id="statsRow"></div>
+
+    <div class="tabs">
+      <button class="tab active" onclick="showTab('findings')">📌 Key Findings</button>
+      <button class="tab" onclick="showTab('papers')">📚 Papers</button>
+      <button class="tab" onclick="showTab('claims')">🧾 Evidence</button>
+      <button class="tab" onclick="showTab('gaps')">🕳️ Research Gaps</button>
+      <button class="tab" onclick="showTab('synthesis')">🔗 Synthesis</button>
+      <button class="tab" onclick="showTab('refs')">📖 References</button>
+    </div>
+
+    <div id="tab-findings" class="tab-panel active"></div>
+    <div id="tab-papers"   class="tab-panel"></div>
+    <div id="tab-claims"   class="tab-panel"></div>
+    <div id="tab-gaps"     class="tab-panel"></div>
+    <div id="tab-synthesis" class="tab-panel"></div>
+    <div id="tab-refs"     class="tab-panel"></div>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+const API = 'http://localhost:8000';
+
+// ── API health check ──────────────────────────────────────────────────────
+async function checkHealth() {
+  try {
+    const r = await fetch(`${API}/health`);
+    if (r.ok) {
+      document.getElementById('apiDot').className = 'dot online';
+      document.getElementById('apiStatus').textContent = 'API Online';
+    } else { throw new Error(); }
+  } catch {
+    document.getElementById('apiStatus').textContent = 'API Offline';
+  }
+}
+checkHealth();
+setInterval(checkHealth, 10000);
+
+// ── Tab switching ─────────────────────────────────────────────────────────
+function showTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(`tab-${name}`).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ── Stepper animation ─────────────────────────────────────────────────────
+let stepTimer;
+function startStepper() {
+  document.getElementById('stepperCard').style.display = 'block';
+  document.getElementById('resultsSection').style.display = 'none';
+  document.getElementById('errorBox').style.display = 'none';
+  ['s1','s2','s3','s4','s5','s6'].forEach(id => {
+    const el = document.getElementById(id);
+    el.className = 'step';
+  });
+
+  const labels = [
+    'Searching PubMed & Semantic Scholar...',
+    'Extracting evidence from papers...',
+    'Validating claims against sources...',
+    'Synthesizing findings across papers...',
+    'Identifying research gaps...',
+    'Generating final report...'
+  ];
+  let current = 0;
+  document.getElementById(steps[0]).classList.add('active');
+
+  stepTimer = setInterval(() => {
+    if (current < steps.length) {
+      if (current > 0) {
+        document.getElementById(steps[current-1]).classList.remove('active');
+        document.getElementById(steps[current-1]).classList.add('done');
+      }
+      document.getElementById(steps[current]).classList.add('active');
+      document.getElementById('progressLabel').textContent = labels[current];
+      current++;
+    }
+  }, 12000);
+}
+const steps = ['s1','s2','s3','s4','s5','s6'];
+
+function stopStepper() {
+  clearInterval(stepTimer);
+  steps.forEach(id => {
+    document.getElementById(id).classList.remove('active');
+    document.getElementById(id).classList.add('done');
+  });
+  document.getElementById('progressLabel').textContent = 'Analysis complete!';
+}
+
+// ── Main research call ────────────────────────────────────────────────────
+async function runResearch() {
+  const question = document.getElementById('questionInput').value.trim();
+  if (!question) {
+    alert('Please enter a research question.');
+    return;
+  }
+
+  const maxPapers = parseInt(document.getElementById('maxPapers').value) || 5;
+  const sourceVal = document.getElementById('sources').value;
+  const sources = sourceVal === 'both'
+    ? ['pubmed','semantic_scholar']
+    : [sourceVal];
+
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Analyzing...';
+
+  startStepper();
+
+  try {
+    const resp = await fetch(`${API}/research`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, max_papers: maxPapers, sources })
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json();
+      throw new Error(err.detail || `HTTP ${resp.status}`);
+    }
+
+    const data = await resp.json();
+    stopStepper();
+    renderResults(data);
+
+  } catch (err) {
+    clearInterval(stepTimer);
+    document.getElementById('stepperCard').style.display = 'none';
+    const box = document.getElementById('errorBox');
+    box.style.display = 'block';
+    box.innerHTML = `<strong>⚠️ Error:</strong> ${err.message}<br><small style="opacity:.7">Make sure Qdrant is running: <code>docker run -p 6333:6333 qdrant/qdrant</code></small>`;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Analyze Literature';
+  }
+}
+
+// ── Render results ────────────────────────────────────────────────────────
+function renderResults(data) {
+  const r = data.report;
+  document.getElementById('resultsSection').style.display = 'block';
+
+  // Summary
+  document.getElementById('summaryBox').innerHTML = `
+    <h3>Executive Summary</h3>
+    ${escHtml(r.executive_summary || 'No summary available.')}`;
+
+  // Stats
+  const supported = (r.validated_claims || []).filter(c => c.validation_status === 'supported').length;
+  document.getElementById('statsRow').innerHTML = `
+    <div class="stat-pill">📚 <span class="num">${(r.papers_analyzed||[]).length}</span> papers</div>
+    <div class="stat-pill">📌 <span class="num">${(r.key_findings||[]).length}</span> findings</div>
+    <div class="stat-pill">✅ <span class="num">${supported}/${(r.validated_claims||[]).length}</span> claims supported</div>
+    <div class="stat-pill">🕳️ <span class="num">${(r.research_gaps||[]).length}</span> gaps</div>`;
+
+  // ── Findings ──
+  const findings = r.key_findings || [];
+  document.getElementById('tab-findings').innerHTML = findings.length
+    ? `<ul class="findings-list">${findings.map(f => `<li>${escHtml(f)}</li>`).join('')}</ul>`
+    : emptyState('📌', 'No key findings extracted.');
+
+  // ── Papers ──
+  const papers = r.papers_analyzed || [];
+  document.getElementById('tab-papers').innerHTML = papers.length
+    ? `<div class="papers-grid">${papers.map(p => paperCard(p)).join('')}</div>`
+    : emptyState('📚', 'No papers retrieved.');
+
+  // ── Claims ──
+  const claims = r.validated_claims || [];
+  document.getElementById('tab-claims').innerHTML = claims.length
+    ? claims.map(c => claimCard(c)).join('')
+    : emptyState('🧾', 'No validated claims.');
+
+  // ── Gaps ──
+  const gaps = r.research_gaps || [];
+  document.getElementById('tab-gaps').innerHTML = gaps.length
+    ? gaps.map(g => gapCard(g)).join('')
+    : emptyState('🕳️', 'No research gaps identified.');
+
+  // ── Synthesis ──
+  document.getElementById('tab-synthesis').innerHTML = r.methodology_comparison
+    ? `<p class="synthesis-text">${escHtml(r.methodology_comparison)}</p>`
+    : emptyState('🔗', 'No synthesis available.');
+
+  // ── References ──
+  const refs = r.references || [];
+  document.getElementById('tab-refs').innerHTML = refs.length
+    ? `<ul class="ref-list">${refs.map(ref => `<li>${escHtml(ref)}</li>`).join('')}</ul>`
+    : emptyState('📖', 'No references.');
+}
+
+function paperCard(p) {
+  const source = p.source || 'unknown';
+  const authors = (p.authors||[]).slice(0,3).join(', ') + ((p.authors||[]).length > 3 ? ' et al.' : '');
+  const url = p.url ? `<a href="${p.url}" target="_blank">🔗 View paper</a>` : '';
+  return `
+    <div class="paper-card">
+      <div style="display:flex;align-items:flex-start;gap:8px">
+        <div class="paper-title" style="flex:1">${escHtml(p.title||'Unknown title')}</div>
+        <span class="source-badge source-${source}">${source === 'semantic_scholar' ? 'S2' : source}</span>
+      </div>
+      <div class="paper-meta">
+        <span>👤 ${escHtml(authors||'Unknown authors')}</span>
+        <span>📅 ${escHtml(p.year||'n.d.')}</span>
+        ${p.doi ? `<span>DOI: ${escHtml(p.doi)}</span>` : ''}
+        ${url}
+      </div>
+      ${p.abstract ? `<p style="font-size:.8rem;color:var(--muted);margin-top:8px;line-height:1.5">${escHtml(p.abstract.slice(0,220))}${p.abstract.length>220?'…':''}</p>` : ''}
+    </div>`;
+}
+
+function claimCard(c) {
+  const st = c.validation_status || 'insufficient_evidence';
+  const labels = {
+    supported: '✅ Supported',
+    partially_supported: '⚠️ Partially Supported',
+    unsupported: '❌ Unsupported',
+    insufficient_evidence: '❓ Insufficient Evidence'
+  };
+  return `
+    <div class="claim-card ${st}">
+      <div class="claim-status">${labels[st]||st}</div>
+      <div class="claim-text">${escHtml(c.claim||'')}</div>
+      ${c.source_passage ? `<div class="claim-source">📄 Source: "${escHtml(c.source_passage.slice(0,180))}…"</div>` : ''}
+    </div>`;
+}
+
+function gapCard(g) {
+  const icons = { dataset:'🗃️', methodology:'⚙️', population:'👥', reproducibility:'🔁', explainability:'💡', general:'🔬' };
+  const icon = icons[g.gap_type] || '🔬';
+  return `
+    <div class="gap-card">
+      <div class="gap-icon">${icon}</div>
+      <div>
+        <div class="gap-type">${escHtml(g.gap_type||'general')}</div>
+        <div class="gap-text">${escHtml(g.gap_description||'')}</div>
+      </div>
+    </div>`;
+}
+
+function emptyState(icon, msg) {
+  return `<div class="empty-state"><div class="big">${icon}</div><p>${msg}</p></div>`;
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+// Allow Enter+Ctrl to submit
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('questionInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.ctrlKey) runResearch();
+  });
+});
+</script>
+</body>
+</html>
